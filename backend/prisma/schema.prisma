@@ -1,0 +1,252 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  user
+  moderator
+  partner_admin
+  super_admin
+}
+
+enum ProficiencyLevel {
+  beginner
+  can_teach
+  expert
+}
+
+enum ExchangeStatus {
+  pending
+  active
+  completed
+  disputed
+  cancelled
+}
+
+enum CreditTxType {
+  earn
+  spend
+  escrow
+  release
+  refund
+}
+
+enum MessageChannel {
+  app
+  sms
+}
+
+enum VerificationMethod {
+  phone
+  student_id
+  ngo_letter
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+}
+
+enum DisputeStatus {
+  open
+  upheld
+  dismissed
+  escalated
+}
+
+enum SkillCategory {
+  agriculture
+  language
+  tech
+  trades
+  arts
+  business
+  literacy
+  health
+}
+
+enum PartnerOrgType {
+  university
+  ngo
+  church
+  council
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  phone         String?
+  passwordHash  String?
+  firebaseUid   String?   @unique
+  role          UserRole  @default(user)
+  district      String
+  lat           Float?
+  lng           Float?
+  bio           String?
+  language      String    @default("en")
+  averageRating Float     @default(0)
+  ratingCount   Int       @default(0)
+  verifiedAt    DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  partnerOrgId  String?
+  partnerOrg    PartnerOrg? @relation(fields: [partnerOrgId], references: [id])
+
+  userSkills     UserSkill[]
+  exchangesAsU1  Exchange[] @relation("ExchangeUser1")
+  exchangesAsU2  Exchange[] @relation("ExchangeUser2")
+  creditTx       CreditTransaction[]
+  messagesSent   Message[]
+  ratingsGiven   Rating[] @relation("RaterRatings")
+  ratingsReceived Rating[] @relation("RatedRatings")
+  verifications  Verification[]
+  disputesRaised Dispute[] @relation("DisputeRaisedBy")
+}
+
+model SkillTaxonomy {
+  id        String        @id @default(cuid())
+  nameEn    String
+  nameNy    String
+  category  SkillCategory
+  createdAt DateTime      @default(now())
+
+  userSkills UserSkill[]
+  exchangesAsOffered Exchange[] @relation("SkillOffered")
+  exchangesAsWanted  Exchange[] @relation("SkillWanted")
+}
+
+/// offered=true: user teaches this skill; offered=false: user wants to learn
+model UserSkill {
+  id              String           @id @default(cuid())
+  userId          String
+  skillTaxonomyId String
+  proficiency     ProficiencyLevel
+  offered         Boolean
+  createdAt       DateTime         @default(now())
+
+  user          User          @relation(fields: [userId], references: [id])
+  skillTaxonomy SkillTaxonomy @relation(fields: [skillTaxonomyId], references: [id])
+
+  @@index([userId])
+  @@index([skillTaxonomyId])
+}
+
+model Exchange {
+  id             String         @id @default(cuid())
+  user1Id        String
+  user2Id        String
+  skillOfferedId String
+  skillWantedId  String
+  status         ExchangeStatus @default(pending)
+  hoursAgreed    Float          @default(1)
+  scheduleTime   DateTime?
+  completedAt    DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  user1        User          @relation("ExchangeUser1", fields: [user1Id], references: [id])
+  user2        User          @relation("ExchangeUser2", fields: [user2Id], references: [id])
+  skillOffered SkillTaxonomy @relation("SkillOffered", fields: [skillOfferedId], references: [id])
+  skillWanted  SkillTaxonomy @relation("SkillWanted", fields: [skillWantedId], references: [id])
+
+  creditTx CreditTransaction[]
+  messages Message[]
+  ratings  Rating[]
+  disputes Dispute[]
+
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([status])
+}
+
+model CreditTransaction {
+  id          String       @id @default(cuid())
+  userId      String
+  exchangeId  String?
+  type        CreditTxType
+  amountHours Float
+  createdAt   DateTime     @default(now())
+
+  user     User      @relation(fields: [userId], references: [id])
+  exchange Exchange? @relation(fields: [exchangeId], references: [id])
+
+  @@index([userId])
+  @@index([exchangeId])
+}
+
+model Message {
+  id         String         @id @default(cuid())
+  exchangeId String
+  senderId   String
+  content    String
+  channel    MessageChannel @default(app)
+  sentAt     DateTime       @default(now())
+
+  exchange Exchange @relation(fields: [exchangeId], references: [id])
+  sender   User     @relation(fields: [senderId], references: [id])
+
+  @@index([exchangeId])
+}
+
+model Rating {
+  id         String   @id @default(cuid())
+  exchangeId String
+  raterId    String
+  ratedId    String
+  score      Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  exchange Exchange @relation(fields: [exchangeId], references: [id])
+  rater    User     @relation("RaterRatings", fields: [raterId], references: [id])
+  rated    User     @relation("RatedRatings", fields: [ratedId], references: [id])
+
+  @@unique([exchangeId, raterId])
+}
+
+model Verification {
+  id          String             @id @default(cuid())
+  userId      String
+  method      VerificationMethod
+  status      VerificationStatus @default(pending)
+  documentUrl String?
+  reviewedBy  String?
+  updatedAt   DateTime           @updatedAt
+  createdAt   DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Dispute {
+  id              String        @id @default(cuid())
+  exchangeId      String
+  raisedById      String
+  reason          String
+  status          DisputeStatus @default(open)
+  resolvedById    String?
+  resolutionNote  String?
+  createdAt       DateTime      @default(now())
+  resolvedAt      DateTime?
+
+  exchange Exchange @relation(fields: [exchangeId], references: [id])
+  raisedBy User     @relation("DisputeRaisedBy", fields: [raisedById], references: [id])
+}
+
+model PartnerOrg {
+  id           String         @id @default(cuid())
+  name         String
+  type         PartnerOrgType
+  contactEmail String?
+  memberCount  Int            @default(0)
+  joinSlug     String         @unique
+  createdAt    DateTime       @default(now())
+
+  members User[]
+}

@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* Cord-inspired: dark zinc shell, rose accent, crisp sans (see https://cord.com/) */
+@theme {
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --color-brand-50: #fff1f2;
+  --color-brand-100: #ffe4e6;
+  --color-brand-600: #f43f5e;
+  --color-brand-800: #e11d48;
+  --color-brand-900: #9f1239;
+  --color-sand-50: #fafafa;
+  --color-sand-200: #e4e4e7;
+  --color-gold-500: #f472b6;
+  --color-cord-bg: #09090b;
+  --color-cord-elevated: #18181b;
+  --color-cord-border: #27272a;
+  --color-cord-muted: #a1a1aa;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply m-0 min-h-dvh bg-cord-bg text-zinc-100 antialiased;
+  }
+}
+
+@layer utilities {
+  .safe-area-pb {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+  }
+  .cord-hero-gradient {
+    background: radial-gradient(120% 80% at 50% -20%, rgba(244, 63, 94, 0.18), transparent 55%),
+      linear-gradient(180deg, #09090b 0%, #0c0c0f 45%, #09090b 100%);
+  }
+  .cord-light-section {
+    @apply bg-zinc-50 text-zinc-900;
+  }
+}
