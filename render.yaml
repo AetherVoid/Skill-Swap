@@ -1,0 +1,63 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# Create/update from the Render Dashboard: New → Blueprint → connect this repo.
+
+databases:
+  - name: skillswap-db
+    databaseName: skillswap
+    user: skillswap
+    region: oregon
+    plan: basic-256mb
+
+services:
+  - type: web
+    name: skillswap-api
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    preDeployCommand: npx prisma db push
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_AUTH
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: skillswap-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+  - type: web
+    name: skillswap-web
+    runtime: static
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: skillswap-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: skillswap-admin
+    runtime: static
+    branch: main
+    rootDir: admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./admin/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: skillswap-api
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
